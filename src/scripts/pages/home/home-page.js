@@ -1,93 +1,90 @@
-import StoryModel from '../../models/story-model.js';
-import MapHelper from '../../utils/map-helper.js';
-
-let mapInstance = null;
-let markers = [];
+import HomePresenter from '../../presenters/home-presenter.js';
 
 export default class HomePage {
+  constructor() {
+    this.presenter = null;
+  }
+  
   async render() {
     return `
       <div class="container">
         <h1>Cerita Lokal</h1>
-        <div id="map" style="height: 400px;"></div>
-        <div class="layer-control" style="margin-block: 10px;">
+        <div id="map" style="height:400px"></div>
+        <div class="layer-control" style="margin-block:10px">
           <button id="toggle-satelit">Mode Satelit</button>
           <button id="toggle-street">Mode Jalan</button>
+          <button id="sync-btn">Sinkronisasi Offline</button>
+          <button id="toggle-push">Aktifkan Notifikasi</button>
         </div>
         <h2>Daftar Cerita</h2>
-        <div id="story-list" class="story-list">Memuat data...</div>
+        <div id="story-list" class="story-list">Memuat...</div>
       </div>
     `;
   }
   
   async afterRender() {
-    try {
-      const stories = await StoryModel.getAllStories(1, 20, 1);
-      const listContainer = document.getElementById('story-list');
-      if (!listContainer) return;
-      if (stories.length === 0) {
-        listContainer.innerHTML = '<p>Belum ada cerita dengan lokasi.</p>';
-      } else {
-        listContainer.innerHTML = stories.map(story => `
-          <div class="story-card" data-lat="${story.lat}" data-lon="${story.lon}">
-            <img src="${story.photoUrl}" alt="Foto cerita dari ${story.name}" loading="lazy">
-            <div class="content">
-              <strong>${story.name}</strong>
-              <p>${story.description.substring(0, 100)}</p>
-              <small>${new Date(story.createdAt).toLocaleDateString('id-ID')}</small>
-            </div>
-          </div>
-        `).join('');
+    this.presenter = new HomePresenter(this);
+    await this.presenter.loadStories();
+    let current = 'street';
+    const btnSat = document.getElementById('toggle-satelit');
+    const btnStr = document.getElementById('toggle-street');
+    if (btnSat) btnSat.onclick = () => {
+      if (current === 'street') {
+        this.presenter.switchLayer('satellite');
+        current = 'satellite';
       }
-      
-      if (!mapInstance) {
-        mapInstance = MapHelper.initMap('map', -6.2, 106.8, 12);
-        MapHelper.addTileLayer(mapInstance, 'street');
-      } else {
-        mapInstance.invalidateSize();
+    };
+    if (btnStr) btnStr.onclick = () => {
+      if (current === 'satellite') {
+        this.presenter.switchLayer('street');
+        current = 'street';
       }
-      
-      markers.forEach(m => mapInstance.removeLayer(m));
-      markers = [];
-      
-      stories.forEach(story => {
-        if (story.lat && story.lon) {
-          const marker = MapHelper.addMarker(mapInstance, story.lat, story.lon, `
-            <b>${story.name}</b><br>${story.description}<br>
-            <img src="${story.photoUrl}" width="150" alt="preview">
-          `);
-          markers.push(marker);
-        }
-      });
-      
-      document.querySelectorAll('.story-card').forEach((card, idx) => {
-        card.addEventListener('click', () => {
-          const lat = parseFloat(card.dataset.lat);
-          const lon = parseFloat(card.dataset.lon);
-          if (lat && lon && markers[idx]) {
-            mapInstance.setView([lat, lon], 15);
-            markers[idx].openPopup();
-          }
-        });
-      });
-      
-      let currentLayer = 'street';
-      document.getElementById('toggle-satelit')?.addEventListener('click', () => {
-        if (currentLayer === 'street') {
-          MapHelper.switchTileLayer(mapInstance, 'satellite');
-          currentLayer = 'satellite';
-        }
-      });
-      document.getElementById('toggle-street')?.addEventListener('click', () => {
-        if (currentLayer === 'satellite') {
-          MapHelper.switchTileLayer(mapInstance, 'street');
-          currentLayer = 'street';
-        }
-      });
-      
-    } catch (error) {
-      console.error(error);
-      document.getElementById('story-list').innerHTML = '<p>Gagal memuat data. Coba login dulu?</p>';
+    };
+    const syncBtn = document.getElementById('sync-btn');
+    if (syncBtn) syncBtn.onclick = () => this.presenter.syncOfflineStories();
+    const pushBtn = document.getElementById('toggle-push');
+    if (pushBtn) pushBtn.onclick = () => this.presenter.togglePush();
+  }
+  showStories(stories) {
+    const container = document.getElementById('story-list');
+    if (!container) return;
+    if (!stories.length) {
+      container.innerHTML = '<p>Belum ada cerita.</p>';
+      return;
     }
+    container.innerHTML = stories.map((s, i) => `
+      <div class="story-card" data-idx="${i}" data-lat="${s.lat || ''}" data-lon="${s.lon || ''}">
+        <img src="${s.photoUrl}" alt="Foto ${s.name}" loading="lazy">
+        <div class="content">
+          <strong>${s.name}</strong>
+          <p>${(s.description || '').slice(0,100)}</p>
+          <small>${new Date(s.createdAt).toLocaleDateString('id-ID')}</small>
+          <button class="delete-local" data-id="${s.id}">Hapus</button>
+        </div>
+      </div>
+    `).join('');
+    
+    document.querySelectorAll('.story-card').forEach((card, idx) => {
+      card.addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-local')) return;
+        const lat = parseFloat(card.dataset.lat);
+        const lon = parseFloat(card.dataset.lon);
+        this.presenter.flyToMarker(idx, lat, lon);
+      });
+      const delBtn = card.querySelector('.delete-local');
+      if (delBtn) delBtn.onclick = (e) => {
+        e.stopPropagation();
+        this.presenter.deleteStory(delBtn.dataset.id);
+      };
+    });
+  }
+  showError(msg) {
+    const container = document.getElementById('story-list');
+    if (container) container.innerHTML += `<p style="color:red">${msg}</p>`;
+  }
+  
+  updatePushButton(enabled) {
+    const btn = document.getElementById('toggle-push');
+    if (btn) btn.textContent = enabled ? 'Nonaktifkan Notifikasi' : 'Aktifkan Notifikasi';
   }
 }

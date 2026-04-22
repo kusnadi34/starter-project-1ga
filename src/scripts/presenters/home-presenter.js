@@ -1,7 +1,7 @@
 import StoryModel from '../models/story-model.js';
 import MapHelper from '../utils/map-helper.js';
 import { getAllStories, saveStory, clearStories, getUnsyncedStories, deleteStory as deleteOfflineStory } from '../utils/idb.js';
-import { subscribePush } from '../utils/push.js';
+import { subscribePush, unsubscribePush } from '../utils/push.js';  
 
 export default class HomePresenter {
   constructor(view) {
@@ -42,6 +42,7 @@ export default class HomePresenter {
       }
     }
   }
+  
   initMap(stories) {
     if (!this.map) {
       this.map = MapHelper.initMap('map', -6.2, 106.8, 12);
@@ -93,8 +94,15 @@ export default class HomePresenter {
     this.loadStories(true);
   }
   async togglePush() {
+    if (Notification.permission !== 'granted') {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        this.view.showError('Izin notifikasi diperlukan untuk push notification.');
+        return;
+      }
+    }
     if (this.pushEnabled) {
-      await subscribePush();
+      await unsubscribePush();
       this.pushEnabled = false;
     } else {
       await subscribePush();

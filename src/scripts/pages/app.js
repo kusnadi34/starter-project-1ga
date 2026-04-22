@@ -15,7 +15,6 @@ class App {
     this._updateAuthNav();
     window.addEventListener('auth-change', () => this._updateAuthNav());
   }
-  
   _setupDrawer() {
     this.#drawerButton.addEventListener('click', () => {
       const expanded = this.#navigationDrawer.classList.toggle('open');
@@ -28,13 +27,11 @@ class App {
       }
     });
   }
-  
   _updateAuthNav() {
     const navList = document.getElementById('nav-list');
     if (!navList) return;
     const oldAuthItems = navList.querySelectorAll('.auth-item');
     oldAuthItems.forEach(item => item.remove());
-    
     const token = AuthModel.getToken();
     if (token) {
       const addStoryLi = document.createElement('li');
@@ -44,7 +41,6 @@ class App {
       addStoryLink.textContent = 'Tambah Cerita';
       addStoryLi.appendChild(addStoryLink);
       navList.appendChild(addStoryLi);
-      
       const logoutLi = document.createElement('li');
       logoutLi.className = 'auth-item';
       const logoutLink = document.createElement('a');
@@ -53,7 +49,6 @@ class App {
       logoutLink.textContent = 'Logout';
       logoutLi.appendChild(logoutLink);
       navList.appendChild(logoutLi);
-      
       const logoutBtn = document.getElementById('logout-btn');
       if (logoutBtn) {
         logoutBtn.addEventListener('click', (e) => {
@@ -71,7 +66,6 @@ class App {
       loginLink.textContent = 'Login';
       loginLi.appendChild(loginLink);
       navList.appendChild(loginLi);
-      
       const registerLi = document.createElement('li');
       registerLi.className = 'auth-item';
       const registerLink = document.createElement('a');
@@ -89,19 +83,20 @@ class App {
       this.#content.innerHTML = '<div class="container"><h1>404 - Halaman tidak ditemukan</h1></div>';
       return;
     }
-    
-    this.#content.style.transition = 'opacity 0.15s';
-    this.#content.style.opacity = '0';
-    setTimeout(async () => {
-      const protectedRoutes = ['/add-story', '/home'];
-      if (protectedRoutes.includes(url) && !AuthModel.getToken()) {
-        window.location.hash = '#/login';
-        return;
-      }
+    const protectedRoutes = ['/add-story'];
+    if (protectedRoutes.includes(url) && !AuthModel.getToken()) {
+      window.location.hash = '#/login';
+      return;
+    }
+    if (document.startViewTransition) {
+      await document.startViewTransition(async () => {
+        this.#content.innerHTML = await page.render();
+        await page.afterRender();
+      }).ready;
+    } else {
       this.#content.innerHTML = await page.render();
       await page.afterRender();
-      this.#content.style.opacity = '1';
-    }, 150);
+    }
   }
 }
 

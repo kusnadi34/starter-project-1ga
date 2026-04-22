@@ -84,18 +84,21 @@ export default class AddStoryPage {
       btn.disabled = true;
       btn.innerText = 'Mengirim...';
       try {
-        const result = await this.presenter.submit(desc, this.capturedBlob, !navigator.onLine);
-        const statusDiv = document.getElementById('status');
-        if (result.offline) {
-          statusDiv.innerHTML = '<div class="success-message">📱 Disimpan offline. Akan disinkronkan saat online.</div>';
-        } else {
-          statusDiv.innerHTML = '<div class="success-message">✅ Berhasil! Mengalihkan...</div>';
-        }
-        on.reset();
-        this.capturedBlob = null;
-        this.presenter.reset();
-        document.getElementById('coord-info').innerHTML = 'Belum pilih lokasi';
-        setTimeout(() => window.location.hash = '#/', 1500);
+        
+      
+      const result = await this.presenter.submit(desc, this.capturedBlob, !navigator.onLine);
+      const statusDiv = document.getElementById('status');
+      if (result.offline) {
+        statusDiv.innerHTML = '<div class="success-message">📱 Disimpan offline. Akan disinkronkan saat online.</div>';
+      } else {
+        statusDiv.innerHTML = '<div class="success-message">✅ Berhasil! Mengalihkan...</div>';
+      }
+      form.reset();   
+      this.capturedBlob = null;
+      this.presenter.reset();
+      document.getElementById('coord-info').innerHTML = 'Belum pilih lokasi';
+      setTimeout(() => window.location.hash = '#/', 1500);
+        
       } catch (err) {
         document.getElementById('status').innerHTML = `<div class="error-message">❌ ${err.message}</div>`;
       } finally {
